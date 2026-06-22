@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>МГТУ — AR-гид: Коворкинг «Стальное наследие»</title>
+
+  <script src="https://cdn.jsdelivr.net/gh/aframevr/aframe@1.6.0/dist/aframe-master.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@master/aframe/build/aframe-ar.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --mgtu-dark-blue: #0B2A4A;
+      --mgtu-white: #FFFFFF;
+      --mgtu-accent: #4FA8D8;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Inter', system-ui, sans-serif; overflow: hidden; }
+
+    .logo-badge {
+      position: fixed; top: 16px; left: 16px; width: 60px; height: 60px;
+      z-index: 20; background: var(--mgtu-white); border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35); overflow: hidden;
+    }
+    .logo-badge img { width: 80%; height: 80%; object-fit: contain; }
+    .logo-fallback { color: var(--mgtu-dark-blue); font-weight: 800; font-size: 0.8rem; letter-spacing: 0.5px; }
+
+    .info-card {
+      position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 24px);
+      width: min(92%, 420px); background: rgba(11, 42, 74, 0.94);
+      border: 1px solid rgba(255, 255, 255, 0.55); border-radius: 16px;
+      padding: 16px 20px; color: var(--mgtu-white);
+      opacity: 0; pointer-events: none; transition: opacity 0.4s ease, transform 0.4s ease;
+      z-index: 20; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+    }
+    .info-card.visible { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+    .info-card h2 { margin: 0 0 6px; font-size: 1.05rem; font-weight: 700; }
+    .info-card h2 .accent { color: var(--mgtu-accent); }
+    .info-card p { margin: 0; font-size: 0.86rem; line-height: 1.45; opacity: 0.95; }
+
+    .hint-badge {
+      position: fixed; bottom: 16px; right: 16px; background: rgba(11, 42, 74, 0.85);
+      color: var(--mgtu-white); padding: 8px 14px; border-radius: 20px; font-size: 0.78rem;
+      z-index: 20; transition: opacity 0.3s ease; border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+    .hint-badge.hidden { opacity: 0; pointer-events: none; }
+
+    /* ---------- Информационные плашки ---------- */
+    .tag {
+      position: fixed;
+      background: rgba(255, 255, 255, 0.96);
+      color: var(--mgtu-dark-blue);
+      padding: 7px 14px 7px 10px;
+      border-radius: 20px;
+      font-size: 0.74rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+      border: 1px solid rgba(11, 42, 74, 0.15);
+      z-index: 18;
+      opacity: 0;
+      transform: translateY(10px) scale(0.9);
+      transition: opacity 0.4s ease, transform 0.4s ease;
+      white-space: nowrap;
+    }
+    .tag.visible { opacity: 1; transform: translateY(0) scale(1); }
+    .tag .icon {
+      width: 22px; height: 22px; border-radius: 50%;
+      background: var(--mgtu-dark-blue); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.7rem; flex-shrink: 0;
+    }
+    .tag.accent .icon { background: var(--mgtu-accent); }
+
+    #tag-year     { top: 20%; left: 8%;  transition-delay: 0.1s; }
+    #tag-height   { top: 16%; right: 8%; transition-delay: 0.25s; }
+    #tag-triptych { top: 58%; right: 6%; transition-delay: 0.4s; }
+  </style>
+</head>
+
+<body>
+
+  <div class="logo-badge">
+    <img src="logo.png" alt="Логотип МГТУ"
+         onerror="this.parentElement.innerHTML='<span class=&quot;logo-fallback&quot;>МГТУ</span>'">
+  </div>
+
+  <div class="info-card" id="info-card">
+    <h2>Коворкинг <span class="accent">«Стальное наследие»</span></h2>
+    <p>
+      Памятник «Тыл — Фронту» (1979, скульптор Л.Н. Головницкий) изображает рабочего,
+      передающего меч солдату — символ единства тыла и фронта. Меч выкован из юбилейной
+      500-миллионной тонны руды горы Магнитной. Название коворкинга — отсылка к этому
+      металлургическому наследию города: пространство для новых проектов, выросшее
+      из истории города стали.
+    </p>
+  </div>
+
+  <div class="hint-badge" id="hint">Наведите камеру на маркер</div>
+
+  <div class="tag" id="tag-year"><span class="icon">📅</span>1979 — открытие монумента</div>
+  <div class="tag accent" id="tag-height"><span class="icon">📏</span>15 м — высота фигур</div>
+  <div class="tag" id="tag-triptych"><span class="icon">⚔️</span>1-я часть триптиха меча Победы</div>
+
+  <!--
+    МАРКЕР — стандартный встроенный Hiro.
+  -->
+  <a-scene
+    embedded
+    arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix;"
+    vr-mode-ui="enabled: false"
+    renderer="logarithmicDepthBuffer: true;"
+  >
+    <a-entity light="type: ambient; color: #FFFFFF; intensity: 0.7"></a-entity>
+    <a-entity light="type: directional; color: #FFF4E0; intensity: 0.75" position="1 1.6 1"></a-entity>
+    <a-entity light="type: directional; color: #BFD9FF; intensity: 0.25" position="-1 0.6 -0.8"></a-entity>
+
+    <a-marker preset="hiro" marker-handler>
+
+      <!--
+        Вся сцена масштабируется одним числом через monument-group.
+        Если памятник окажется повёрнут "не той стороной" или лежит
+        набок — поправьте rotation у #tlfront-monument (один параметр).
+      -->
+      <a-entity id="monument-group" scale="0.7 0.7 0.7">
+
+        <!-- Гранитный постамент -->
+        <a-cylinder radius="0.55" height="0.04" color="#5A5C60" position="0 0 0"
+                    segments-radial="32"></a-cylinder>
+        <a-cylinder radius="0.58" height="0.012" color="#0B2A4A" position="0 -0.026 0"
+                    segments-radial="32"></a-cylinder>
+
+        <!-- ПАМЯТНИК «ТЫЛ — ФРОНТУ» — настоящая 3D-модель -->
+        <a-entity id="tlfront-monument"
+          gltf-model="models/tlfront-monument.glb"
+          position="0 0.52 0"
+          rotation="0 0 0">
+        </a-entity>
+
+      </a-entity>
+    </a-marker>
+
+    <a-entity camera></a-entity>
+  </a-scene>
+
+  <script>
+    AFRAME.registerComponent('marker-handler', {
+      init: function () {
+        var infoCard = document.getElementById('info-card');
+        var hint = document.getElementById('hint');
+        var tags = [
+          document.getElementById('tag-year'),
+          document.getElementById('tag-height'),
+          document.getElementById('tag-triptych')
+        ];
+
+        this.el.addEventListener('markerFound', function () {
+          infoCard.classList.add('visible');
+          hint.classList.add('hidden');
+          tags.forEach(function (t) { t.classList.add('visible'); });
+        });
+
+        this.el.addEventListener('markerLost', function () {
+          infoCard.classList.remove('visible');
+          hint.classList.remove('hidden');
+          tags.forEach(function (t) { t.classList.remove('visible'); });
+        });
+      }
+    });
+  </script>
+
+</body>
+</html>
