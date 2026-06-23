@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>МГТУ — AR-гид: Коворкинг «Стальное наследие»</title>
+
+  <script src="https://cdn.jsdelivr.net/gh/aframevr/aframe@1.6.0/dist/aframe-master.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@master/aframe/build/aframe-ar.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --mgtu-dark-blue: #0B2A4A;
+      --mgtu-white: #FFFFFF;
+      --mgtu-accent: #4FA8D8;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Inter', system-ui, sans-serif; overflow: hidden; }
+
+    .logo-badge {
+      position: fixed; top: 16px; left: 16px; width: 60px; height: 60px;
+      z-index: 20; background: var(--mgtu-white); border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35); overflow: hidden;
+    }
+    .logo-badge img { width: 80%; height: 80%; object-fit: contain; }
+    .logo-fallback { color: var(--mgtu-dark-blue); font-weight: 800; font-size: 0.8rem; letter-spacing: 0.5px; }
+
+    .info-card {
+      position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 24px);
+      width: min(92%, 420px); background: rgba(11, 42, 74, 0.94);
+      border: 1px solid rgba(255, 255, 255, 0.55); border-radius: 16px;
+      padding: 16px 20px; color: var(--mgtu-white);
+      opacity: 0; pointer-events: none; transition: opacity 0.4s ease, transform 0.4s ease;
+      z-index: 20; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+    }
+    .info-card.visible { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+    .info-card h2 { margin: 0 0 6px; font-size: 1.05rem; font-weight: 700; }
+    .info-card h2 .accent { color: var(--mgtu-accent); }
+    .info-card p { margin: 0; font-size: 0.86rem; line-height: 1.45; opacity: 0.95; }
+
+    .hint-badge {
+      position: fixed; bottom: 16px; right: 16px; background: rgba(11, 42, 74, 0.85);
+      color: var(--mgtu-white); padding: 8px 14px; border-radius: 20px; font-size: 0.78rem;
+      z-index: 20; transition: opacity 0.3s ease; border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+    .hint-badge.hidden { opacity: 0; pointer-events: none; }
+
+    /* ---------- Информационные плашки — в стиле "рамки" инфо-карточки ---------- */
+    .tag {
+      position: fixed;
+      background: rgba(20, 24, 28, 0.82);
+      backdrop-filter: blur(2px);
+      color: #F2EEE4;
+      padding: 8px 16px;
+      border-radius: 10px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(217, 201, 163, 0.45);
+      border-left: 3px solid #B08D57;
+      z-index: 18;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.4s ease, transform 0.4s ease;
+      white-space: nowrap;
+      text-transform: uppercase;
+    }
+    .tag.visible { opacity: 1; transform: translateY(0); }
+    .tag .value { font-size: 0.95rem; font-weight: 800; color: #fff; display: block; text-transform: none; letter-spacing: 0; }
+    .tag.accent { border-left-color: var(--mgtu-accent); }
+
+    #tag-year     { top: 20%; left: 8%;  transition-delay: 0.1s; }
+    #tag-height   { top: 16%; right: 8%; transition-delay: 0.25s; }
+    #tag-triptych { top: 58%; right: 6%; transition-delay: 0.4s; }
+
+    /* ---------- Кнопка-гид (озвучка карточки) ---------- */
+    .guide-btn {
+      position: absolute; top: -16px; right: 20px;
+      width: 42px; height: 42px; border-radius: 50%;
+      background: var(--mgtu-accent); color: #fff;
+      border: 3px solid var(--mgtu-dark-blue);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.15rem; cursor: pointer; z-index: 2;
+      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+    }
+    .guide-btn.playing { animation: guide-pulse 1.1s ease-in-out infinite; }
+    @keyframes guide-pulse {
+      0%, 100% { box-shadow: 0 6px 14px rgba(0,0,0,0.35), 0 0 0 0 rgba(79,168,216,0.55); }
+      50%      { box-shadow: 0 6px 14px rgba(0,0,0,0.35), 0 0 0 10px rgba(79,168,216,0); }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="logo-badge">
+    <img src="logo.png" alt="Логотип МГТУ"
+         onerror="this.parentElement.innerHTML='<span class=&quot;logo-fallback&quot;>МГТУ</span>'">
+  </div>
+
+  <div class="info-card" id="info-card">
+    <button class="guide-btn" id="guide-btn" aria-label="Озвучить информацию">🔊</button>
+    <h2>Коворкинг <span class="accent">«Стальное наследие»</span></h2>
+    <p>
+      Памятник «Тыл — Фронту» (1979, скульптор Л.Н. Головницкий) изображает рабочего,
+      передающего меч солдату — символ единства тыла и фронта. Меч выкован из юбилейной
+      500-миллионной тонны руды горы Магнитной. Название коворкинга — отсылка к этому
+      металлургическому наследию города: пространство для новых проектов, выросшее
+      из истории города стали.
+    </p>
+  </div>
+
+  <div class="hint-badge" id="hint">Наведите камеру на маркер</div>
+
+  <div class="tag" id="tag-year">Открытие монумента<span class="value">1979</span></div>
+  <div class="tag accent" id="tag-height">Высота фигур<span class="value">15 м</span></div>
+  <div class="tag" id="tag-triptych">Триптих меча Победы<span class="value">Часть I</span></div>
+
+  <!--
+    МАРКЕР — стандартный встроенный Hiro.
+  -->
+  <a-scene
+    embedded
+    arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix;"
+    vr-mode-ui="enabled: false"
+    renderer="logarithmicDepthBuffer: true;"
+  >
+    <a-entity light="type: ambient; color: #FFFFFF; intensity: 0.7"></a-entity>
+    <a-entity light="type: directional; color: #FFF4E0; intensity: 0.75" position="1 1.6 1"></a-entity>
+    <a-entity light="type: directional; color: #BFD9FF; intensity: 0.25" position="-1 0.6 -0.8"></a-entity>
+
+    <a-marker preset="hiro" marker-handler>
+
+      <!--
+        Вся сцена масштабируется одним числом через monument-group.
+        Если памятник окажется повёрнут "не той стороной" или лежит
+        набок — поправьте rotation у #tlfront-monument (один параметр).
+      -->
+      <a-entity id="monument-group" scale="0.7 0.7 0.7">
+
+        <!-- Гранитный постамент -->
+        <a-cylinder radius="0.55" height="0.04" color="#5A5C60" position="0 0 0"
+                    segments-radial="32"></a-cylinder>
+        <a-cylinder radius="0.58" height="0.012" color="#0B2A4A" position="0 -0.026 0"
+                    segments-radial="32"></a-cylinder>
+
+        <!-- ПАМЯТНИК «ТЫЛ — ФРОНТУ» — настоящая 3D-модель -->
+        <a-entity id="tlfront-monument"
+          gltf-model="models/tlfront-monument.glb"
+          position="0 0.52 0"
+          rotation="0 0 0">
+        </a-entity>
+
+      </a-entity>
+    </a-marker>
+
+    <a-entity camera></a-entity>
+  </a-scene>
+
+  <script>
+    // ------------------------------------------------------------
+    // ЗАПАСНОЙ ВАРИАНТ — если models/tlfront-monument.glb не сможет
+    // загрузиться, вместо пустого места появится простой стилизованный
+    // знак (стела + табличка), чтобы площадка не осталась пустой.
+    // ------------------------------------------------------------
+    function buildFallbackMonument(parent) {
+      function addPart(tag, attrs) {
+        var el = document.createElement(tag);
+        for (var key in attrs) { el.setAttribute(key, attrs[key]); }
+        parent.appendChild(el);
+        return el;
+      }
+      addPart('a-box', { width:'0.14', height:'0.62', depth:'0.1', position:'0 0.31 0', color:'#3B3B3E' });
+      addPart('a-box', { width:'0.18', height:'0.05', depth:'0.13', position:'0 0.63 0', color:'#2B2B2D' });
+      // Стилизованный "меч" сверху
+      addPart('a-box', { width:'0.02', height:'0.22', depth:'0.02', position:'0 0.78 0', color:'#B08D57' });
+      addPart('a-box', { width:'0.1', height:'0.02', depth:'0.02', position:'0 0.68 0', color:'#B08D57' });
+      var plaque = addPart('a-plane', { width:'0.26', height:'0.08', position:'0 0.2 0.051', color:'#F2EEE4' });
+      addPart('a-text', { value:'ТЫЛ — ФРОНТУ', align:'center', color:'#0B2A4A', width:'1.4', position:'0 0.2 0.052' });
+    }
+
+    var monumentEl = document.getElementById('tlfront-monument');
+    monumentEl.addEventListener('model-error', function () {
+      console.warn('models/tlfront-monument.glb не загрузился — показываю запасной вариант');
+      monumentEl.removeAttribute('gltf-model');
+      monumentEl.setAttribute('position', '0 0 0');
+      buildFallbackMonument(monumentEl);
+    });
+
+    // ------------------------------------------------------------
+    // КНОПКА-ГИД — озвучивает текст инфо-карточки вслух (Web Speech API,
+    // без аудиофайлов).
+    // ------------------------------------------------------------
+    (function () {
+      var btn = document.getElementById('guide-btn');
+      if (!('speechSynthesis' in window)) {
+        btn.style.display = 'none';
+        return;
+      }
+      var speaking = false;
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (speaking) {
+          window.speechSynthesis.cancel();
+          speaking = false;
+          btn.classList.remove('playing');
+          btn.textContent = '🔊';
+          return;
+        }
+        var title = document.querySelector('#info-card h2').textContent;
+        var body = document.querySelector('#info-card p').textContent.replace(/\s+/g, ' ').trim();
+        var utter = new SpeechSynthesisUtterance(title + '. ' + body);
+        utter.lang = 'ru-RU';
+        utter.rate = 0.95;
+        utter.onend = function () { speaking = false; btn.classList.remove('playing'); btn.textContent = '🔊'; };
+        utter.onerror = function () { speaking = false; btn.classList.remove('playing'); btn.textContent = '🔊'; };
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utter);
+        speaking = true;
+        btn.classList.add('playing');
+        btn.textContent = '⏸';
+      });
+    })();
+
+    AFRAME.registerComponent('marker-handler', {
+      init: function () {
+        var infoCard = document.getElementById('info-card');
+        var hint = document.getElementById('hint');
+        var tags = [
+          document.getElementById('tag-year'),
+          document.getElementById('tag-height'),
+          document.getElementById('tag-triptych')
+        ];
+
+        this.el.addEventListener('markerFound', function () {
+          infoCard.classList.add('visible');
+          hint.classList.add('hidden');
+          tags.forEach(function (t) { t.classList.add('visible'); });
+        });
+
+        this.el.addEventListener('markerLost', function () {
+          infoCard.classList.remove('visible');
+          hint.classList.remove('hidden');
+          tags.forEach(function (t) { t.classList.remove('visible'); });
+        });
+      }
+    });
+  </script>
+
+</body>
+</html>
